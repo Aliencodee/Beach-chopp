@@ -211,46 +211,53 @@ with tab_cadastro:
 # ABA 2: GERENCIAR STATUS
 # ---------------------------------------------------------
 with tab_status:
-    st.subheader("🔄 Alterar Status dos Pedidos")
-    st.markdown("Marque os pedidos como **Entregue** abaixo:")
+    st.subheader("🔄 Fluxo de Entrega")
+    st.markdown("Gerencie os pedidos pendentes e atualize o status da operação em tempo real.")
 
+    # Recarrega para garantir dados frescos
     df_status = carregar_dados()
     cols_s = ["Data Registro", "Cliente", "Tipo", "Qtd", "Entrega", "Status"]
 
+    # Filtra apenas o que não foi entregue
     pendentes = df_status[df_status["Status"] == "Pendente"].copy()
 
     if pendentes.empty:
-        st.success("✅ Nenhum pedido pendente no momento!")
+        st.success("✅ **Excelente!** Todos os pedidos foram entregues.")
     else:
-        st.markdown(f"**{len(pendentes)} pedido(s) pendente(s):**")
-        indices_para_entregar = []
-
+        st.info(f"💡 Você tem **{len(pendentes)}** entrega(s) aguardando conclusão.")
+        
+        # Criando um layout de cards mais organizado
         for idx, row in pendentes.iterrows():
-            col_check, col_info = st.columns([1, 6])
-            with col_check:
-                marcar = st.checkbox("", key=f"status_{idx}")
-            with col_info:
-                st.markdown(
-                    f"**{row['Cliente']}** | {row['Tipo']} | {row['Qtd']} barril(s) | Entrega: {row['Entrega']}"
-                )
-            if marcar:
-                indices_para_entregar.append(idx)
-
-        if indices_para_entregar:
-            if st.button(f"✅ Confirmar Entrega de {len(indices_para_entregar)} pedido(s)", type="primary"):
-                df_atualizar = carregar_dados()
-                if 'Data_Grafico' in df_atualizar.columns:
-                    df_atualizar = df_atualizar.drop(columns=['Data_Grafico'])
-                df_atualizar.loc[indices_para_entregar, "Status"] = "Entregue"
-                df_atualizar = df_atualizar.dropna(subset=['Cliente'])
-                conn.update(spreadsheet=URL_PLANILHA, data=df_atualizar)
-                st.success("Status atualizado com sucesso!")
-                st.rerun()
+            with st.container(border=True):
+                c1, c2, c3 = st.columns([3, 2, 1])
+                
+                with c1:
+                    st.markdown(f"### 👤 {row['Cliente']}")
+                    st.caption(f"📅 **Data de Entrega:** {row['Entrega']}")
+                
+                with c2:
+                    st.markdown(f"📦 **{row['Qtd']} Barril(s)**")
+                    st.markdown(f"🍺 *Tipo:* {row['Tipo']}")
+                
+                with c3:
+                    st.write("") # Espaçador
+                    # Botão estilizado para ação imediata
+                    if st.button("Finalizar", key=f"btn_{idx}", type="primary", use_container_width=True):
+                        df_atualizar = carregar_dados()
+                        if 'Data_Grafico' in df_atualizar.columns:
+                            df_atualizar = df_atualizar.drop(columns=['Data_Grafico'])
+                        
+                        # Atualiza o status específico
+                        df_atualizar.loc[idx, "Status"] = "Entregue"
+                        df_atualizar = df_atualizar.dropna(subset=['Cliente'])
+                        
+                        conn.update(spreadsheet=URL_PLANILHA, data=df_atualizar)
+                        st.toast(f"Entrega de {row['Cliente']} confirmada!", icon="✅")
+                        st.rerun()
 
     st.markdown("---")
-    st.subheader("📦 Todos os Pedidos")
-    st.dataframe(df_status[cols_s].sort_index(ascending=False), use_container_width=True)
-
+    with st.expander("📂 Visualizar Histórico Completo", expanded=False):
+        st.dataframe(df_status[cols_s].sort_index(ascending=False), use_container_width=True)
 # ---------------------------------------------------------
 # ABA 3: DASHBOARD
 # ---------------------------------------------------------
